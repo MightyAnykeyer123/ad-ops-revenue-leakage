@@ -1,0 +1,31 @@
+Loading ad-ops telemetry tables into SQLite engine...
+
+================================================================================
+1. PARTNER DISCREPANCY & REVENUE LEAKAGE AUDIT (BY DSP)
+Objective: Isolate unbilled impressions and financial loss against 2% SLA threshold
+================================================================================
+ dsp_partner  server_impressions  dsp_billed_impressions  dropped_impressions  discrepancy_pct  estimated_revenue_leakage_usd
+       DV360               36292                   33643                 2649             7.30                          10.40
+TheTradeDesk               47709                   44247                 3462             7.26                          13.66
+  Amazon_DSP               23979                   22273                 1706             7.11                           6.55
+       Xandr               12020                   11188                  832             6.92                           3.12
+
+================================================================================
+2. TECHNICAL ROOT-CAUSE: LATENCY TIERS VS. DROPPED IMPRESSION RATE
+Objective: Prove whether network timeout (>1000ms) is breaking win-notice callbacks
+================================================================================
+                 latency_tier  total_impressions  unbilled_impressions  drop_rate_pct
+          1. Optimal (<300ms)              48571                  1937           3.99
+        2. Normal (300-600ms)              41079                  1590           3.87
+ 3. High Latency (601-1000ms)              20510                   823           4.01
+4. Critical Timeout (>1000ms)               9840                  4299          43.69
+
+================================================================================
+3. ATTRIBUTION CANNIBALIZATION: RETARGETING VS. PROSPECTING CREDIT
+Objective: Measure revenue credited via Last-Touch vs. Upper-Funnel Assisted Clicks
+================================================================================
+campaign_id                      campaign_name  direct_last_touch_conversions  credited_revenue_usd  avg_conversion_aov
+    CMP-103         Q3_DPA_Dynamic_Retargeting                             52               3795.80               73.00
+    CMP-102 Q3_Performance_Prospecting_Display                             44               3089.79               70.22
+    CMP-101           Q3_Brand_Awareness_Video                             21               1430.94               68.14
+    CMP-104                Q3_App_Install_Push                             10                601.96               60.20
