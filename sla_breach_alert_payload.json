@@ -1,30 +1,20 @@
 {
-  "timestamp": "2026-11-03T08:39:41.998196Z",
+  "timestamp": "2026-11-03T09:09:20.378841+00:00Z",
   "audit_metric": "Ad-Ops 2.0% MSA SLA Discrepancy Evaluation",
   "overall_summary": {
     "server_impressions": 10000,
-    "billed_impressions": 9691,
-    "discrepancy_rate_pct": 3.09,
-    "net_revenue_leakage_usd": 1.08,
-    "sla_breach_count": 8
+    "billed_impressions": 9708,
+    "discrepancy_rate_pct": 2.92,
+    "net_revenue_leakage_usd": 0.98,
+    "sla_breach_count": 6
   },
   "breached_line_items": [
     {
       "partner": "Amazon DSP",
-      "placement_id": "PL-3001",
-      "server_impressions": 661,
-      "billed_impressions": 647,
-      "discrepancy_rate_pct": 2.12,
-      "contract_cpm": 2.8,
-      "unbilled_loss_usd": 0.04,
-      "recommended_action": "Issue formal partner credit dispute memo"
-    },
-    {
-      "partner": "Amazon DSP",
       "placement_id": "PL-3003",
-      "server_impressions": 619,
-      "billed_impressions": 606,
-      "discrepancy_rate_pct": 2.1,
+      "server_impressions": 620,
+      "billed_impressions": 604,
+      "discrepancy_rate_pct": 2.58,
       "contract_cpm": 2.8,
       "unbilled_loss_usd": 0.04,
       "recommended_action": "Issue formal partner credit dispute memo"
@@ -32,19 +22,19 @@
     {
       "partner": "DV360",
       "placement_id": "PL-3001",
-      "server_impressions": 630,
-      "billed_impressions": 580,
-      "discrepancy_rate_pct": 7.94,
+      "server_impressions": 637,
+      "billed_impressions": 582,
+      "discrepancy_rate_pct": 8.63,
       "contract_cpm": 3.5,
-      "unbilled_loss_usd": 0.18,
+      "unbilled_loss_usd": 0.19,
       "recommended_action": "Issue formal partner credit dispute memo"
     },
     {
       "partner": "DV360",
       "placement_id": "PL-3002",
-      "server_impressions": 588,
-      "billed_impressions": 538,
-      "discrepancy_rate_pct": 8.5,
+      "server_impressions": 653,
+      "billed_impressions": 601,
+      "discrepancy_rate_pct": 7.96,
       "contract_cpm": 3.5,
       "unbilled_loss_usd": 0.18,
       "recommended_action": "Issue formal partner credit dispute memo"
@@ -52,38 +42,28 @@
     {
       "partner": "DV360",
       "placement_id": "PL-3003",
-      "server_impressions": 575,
-      "billed_impressions": 540,
-      "discrepancy_rate_pct": 6.09,
+      "server_impressions": 613,
+      "billed_impressions": 576,
+      "discrepancy_rate_pct": 6.04,
       "contract_cpm": 3.5,
-      "unbilled_loss_usd": 0.12,
+      "unbilled_loss_usd": 0.13,
       "recommended_action": "Issue formal partner credit dispute memo"
     },
     {
       "partner": "DV360",
       "placement_id": "PL-3004",
-      "server_impressions": 613,
-      "billed_impressions": 565,
-      "discrepancy_rate_pct": 7.83,
+      "server_impressions": 667,
+      "billed_impressions": 626,
+      "discrepancy_rate_pct": 6.15,
       "contract_cpm": 3.5,
-      "unbilled_loss_usd": 0.17,
-      "recommended_action": "Issue formal partner credit dispute memo"
-    },
-    {
-      "partner": "The Trade Desk",
-      "placement_id": "PL-3004",
-      "server_impressions": 637,
-      "billed_impressions": 623,
-      "discrepancy_rate_pct": 2.2,
-      "contract_cpm": 4.2,
-      "unbilled_loss_usd": 0.06,
+      "unbilled_loss_usd": 0.14,
       "recommended_action": "Issue formal partner credit dispute memo"
     },
     {
       "partner": "Xandr",
-      "placement_id": "PL-3001",
-      "server_impressions": 605,
-      "billed_impressions": 592,
+      "placement_id": "PL-3002",
+      "server_impressions": 651,
+      "billed_impressions": 637,
       "discrepancy_rate_pct": 2.15,
       "contract_cpm": 2.8,
       "unbilled_loss_usd": 0.04,

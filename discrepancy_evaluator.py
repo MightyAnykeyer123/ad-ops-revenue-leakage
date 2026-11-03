@@ -1,119 +1,88 @@
 import json
-import os
 import pandas as pd
 import numpy as np
-from datetime import datetime
 
 class DiscrepancyEvaluator:
-    def __init__(self, server_logs_path: str, partner_logs_path: str, sla_threshold: float = 2.0):
-        self.server_logs_path = server_logs_path
-        self.partner_logs_path = partner_logs_path
-        self.sla_threshold = sla_threshold
+    def __init__(self, server_path="ad_server_impressions.csv", partner_path="dsp_billing_logs.csv", sla_threshold_pct=2.0):
+        self.server_path = server_path
+        self.partner_path = partner_path
+        self.sla_threshold_pct = sla_threshold_pct
         self.df_server = None
         self.df_partner = None
-        self.reconciliation_df = None
 
     def load_data(self):
-        """Loads and normalizes ad server and DSP partner logs."""
-        if not os.path.exists(self.server_logs_path) or not os.path.exists(self.partner_logs_path):
-            raise FileNotFoundError("Input log files not found.")
-        
-        self.df_server = pd.read_csv(self.server_logs_path)
-        self.df_partner = pd.read_csv(self.partner_logs_path)
-        
-        # Standardize column naming
-        self.df_server.columns = [c.strip().lower() for c in self.df_server.columns]
-        self.df_partner.columns = [c.strip().lower() for c in self.df_partner.columns]
+        self.df_server = pd.read_csv(self.server_path)
+        self.df_partner = pd.read_csv(self.partner_path)
 
-    def evaluate(self) -> pd.DataFrame:
-        """Executes matching, SLA evaluation, and financial leakage calculation."""
-        if self.df_server is None or self.df_partner is None:
-            self.load_data()
+        # Normalize ID column if needed
+        if "billed_impression_id" not in self.df_partner.columns and "impression_id" in self.df_partner.columns:
+            self.df_partner = self.df_partner.rename(columns={"impression_id": "billed_impression_id"})
+        if "billed_impression_id" not in self.df_partner.columns:
+            self.df_partner["billed_impression_id"] = self.df_partner.iloc[:, 0]
 
-        # Aggregate server logs
-        server_agg = self.df_server.groupby(['partner_name', 'placement_id', 'cpm']).agg(
-            server_impressions=('impression_id', 'count')
+    def evaluate(self):
+        self.load_data()
+
+        server_agg = self.df_server.groupby(['partner_name', 'placement_id']).agg(
+            server_impressions=('impression_id', 'count'),
+            contract_cpm=('cpm', 'mean')
         ).reset_index()
 
-        # Aggregate partner logs (billed)
         partner_agg = self.df_partner.groupby(['partner_name', 'placement_id']).agg(
             billed_impressions=('billed_impression_id', 'count')
         ).reset_index()
 
-        # Outer join to capture discrepancies and unbilled volume
-        merged = pd.merge(server_agg, partner_agg, on=['partner_name', 'placement_id'], how='left')
-        merged['billed_impressions'] = merged['billed_impressions'].fillna(0).astype(int)
+        recon = pd.merge(server_agg, partner_agg, on=['partner_name', 'placement_id'], how='left').fillna(0)
+        recon['billed_impressions'] = recon['billed_impressions'].astype(int)
 
-        # Discrepancy metrics
-        merged['unbilled_impressions'] = merged['server_impressions'] - merged['billed_impressions']
-        merged['discrepancy_rate_pct'] = np.round(
-            (merged['unbilled_impressions'] / merged['server_impressions']) * 100, 2
+        recon['unbilled_impressions'] = recon['server_impressions'] - recon['billed_impressions']
+        recon['discrepancy_rate_pct'] = np.round(
+            (recon['unbilled_impressions'] / recon['server_impressions']) * 100, 2
         )
-        
-        # Contractual financial leakage = (Unbilled Impressions / 1,000) * Contracted CPM
-        merged['revenue_leakage_usd'] = np.round(
-            (merged['unbilled_impressions'] / 1000.0) * merged['cpm'], 2
+        recon['unbilled_loss_usd'] = np.round(
+            (recon['unbilled_impressions'] / 1000.0) * recon['contract_cpm'], 2
         )
+        recon['sla_breached'] = recon['discrepancy_rate_pct'] > self.sla_threshold_pct
 
-        # SLA Compliance Status
-        merged['sla_breach'] = merged['discrepancy_rate_pct'] > self.sla_threshold
-        merged['status'] = np.where(merged['sla_breach'], 'BREACH (Sev-2)', 'COMPLIANT')
-
-        self.reconciliation_df = merged
-        return self.reconciliation_df
-
-    def generate_incident_payload(self) -> dict:
-        """Generates a structured incident JSON payload for breached partners."""
-        if self.reconciliation_df is None:
-            self.evaluate()
-
-        breaches = self.reconciliation_df[self.reconciliation_df['sla_breach']]
-        total_server = int(self.reconciliation_df['server_impressions'].sum())
-        total_billed = int(self.reconciliation_df['billed_impressions'].sum())
-        total_lost_revenue = float(self.reconciliation_df['revenue_leakage_usd'].sum())
-        overall_discrepancy = round(((total_server - total_billed) / total_server) * 100, 2) if total_server else 0.0
-
-        payload = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "audit_metric": "Ad-Ops 2.0% MSA SLA Discrepancy Evaluation",
+        # Build Sev-2 alert payload
+        breaches = recon[recon['sla_breached']].copy()
+        alert_payload = {
+            "timestamp": pd.Timestamp.utcnow().isoformat() + "Z",
+            "audit_metric": f"Ad-Ops {self.sla_threshold_pct}% MSA SLA Discrepancy Evaluation",
             "overall_summary": {
-                "server_impressions": total_server,
-                "billed_impressions": total_billed,
-                "discrepancy_rate_pct": overall_discrepancy,
-                "net_revenue_leakage_usd": total_lost_revenue,
+                "server_impressions": int(recon['server_impressions'].sum()),
+                "billed_impressions": int(recon['billed_impressions'].sum()),
+                "discrepancy_rate_pct": float(round(((recon['server_impressions'].sum() - recon['billed_impressions'].sum()) / recon['server_impressions'].sum()) * 100, 2)),
+                "net_revenue_leakage_usd": float(round(recon['unbilled_loss_usd'].sum(), 2)),
                 "sla_breach_count": int(breaches.shape[0])
             },
-            "breached_line_items": []
+            "breached_line_items": [
+                {
+                    "partner": row['partner_name'],
+                    "placement_id": row['placement_id'],
+                    "server_impressions": int(row['server_impressions']),
+                    "billed_impressions": int(row['billed_impressions']),
+                    "discrepancy_rate_pct": float(row['discrepancy_rate_pct']),
+                    "contract_cpm": float(row['contract_cpm']),
+                    "unbilled_loss_usd": float(row['unbilled_loss_usd']),
+                    "recommended_action": "Issue formal partner credit dispute memo"
+                }
+                for _, row in breaches.iterrows()
+            ]
         }
 
-        for _, row in breaches.iterrows():
-            payload["breached_line_items"].append({
-                "partner": row['partner_name'],
-                "placement_id": row['placement_id'],
-                "server_impressions": int(row['server_impressions']),
-                "billed_impressions": int(row['billed_impressions']),
-                "discrepancy_rate_pct": float(row['discrepancy_rate_pct']),
-                "contract_cpm": float(row['cpm']),
-                "unbilled_loss_usd": float(row['revenue_leakage_usd']),
-                "recommended_action": "Issue formal partner credit dispute memo"
-            })
+        with open("sla_breach_alert_payload.json", "w") as f:
+            json.dump(alert_payload, f, indent=2)
 
-        return payload
+        return recon
 
 if __name__ == "__main__":
-    server_path = "ad_server_impressions.csv"
-    partner_path = "dsp_billing_logs.csv"
+    evaluator = DiscrepancyEvaluator()
+    recon_df = evaluator.evaluate()
 
-    evaluator = DiscrepancyEvaluator(server_path, partner_path, sla_threshold=2.0)
-    results = evaluator.evaluate()
-    
-    print("\n======================= RECONCILIATION AUDIT SUMMARY =======================")
-    print(results.to_string(index=False))
-    
-    payload = evaluator.generate_incident_payload()
-    with open("sla_breach_alert_payload.json", "w") as f:
-        json.dump(payload, f, indent=2)
+    print("\n================== 2.0% MSA SLA RECONCILIATION AUDIT ==================")
+    print(recon_df[['partner_name', 'placement_id', 'server_impressions', 'billed_impressions', 'discrepancy_rate_pct', 'sla_breached', 'unbilled_loss_usd']].to_string(index=False))
 
-    print("\n[✓] Incident payload written to: sla_breach_alert_payload.json")
-    print(f"[✓] Total Breaches Detected: {payload['overall_summary']['sla_breach_count']}")
-    print(f"[✓] Net Revenue at Risk: ${payload['overall_summary']['net_revenue_leakage_usd']:,.2f}")
+    breaches = recon_df[recon_df['sla_breached']]
+    print(f"\n[!] Breaches detected (> 2.0% SLA threshold): {len(breaches)} placement(s) flagged.")
+    print("[✓] Webhook dispute payload saved to: sla_breach_alert_payload.json")
